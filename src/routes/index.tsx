@@ -12,6 +12,9 @@ import {
   Flame,
   Layers,
   Pencil,
+  X,
+  SlidersHorizontal,
+  RotateCcw,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { type Councillor } from "@/data/civic-data";
@@ -19,6 +22,7 @@ import { CivicNavbar } from "@/components/CivicNavbar";
 import { CivicFooter } from "@/components/CivicFooter";
 import { ContactModal } from "@/components/ContactModal";
 import { CityLogoPlaceholder } from "@/components/CityLogoPlaceholder";
+import { PartnerInquiryModal } from "@/components/PartnerInquiryModal";
 import { useCivic } from "@/context/CivicContext";
 
 export const Route = createFileRoute("/")({
@@ -54,43 +58,109 @@ function HomeDirectoryPage() {
     setEditingWard,
     setEditingMunicipality,
   } = useCivic();
+
   const [query, setQuery] = useState("");
   const [activeMunicipality, setActiveMunicipality] = useState("All municipalities");
+  const [activeCategoryTab, setActiveCategoryTab] = useState<
+    "all" | "councillors" | "municipalities" | "wards"
+  >("all");
   const [contactCouncillor, setContactCouncillor] = useState<Councillor | null>(null);
+  const [partnerModalOpen, setPartnerModalOpen] = useState(false);
 
-  // Top 4 Most Active Councillors
-  const previewCouncillors = useMemo(() => {
-    return councillors
-      .filter((c) => {
-        const matchesMuni =
-          activeMunicipality === "All municipalities" ||
-          c.municipality === activeMunicipality ||
-          activeMunicipality.toLowerCase().includes(c.municipality.toLowerCase()) ||
-          c.municipality.toLowerCase().includes(activeMunicipality.toLowerCase());
+  const normalizedQuery = query.trim().toLowerCase();
+  const isSearching = normalizedQuery.length > 0 || activeMunicipality !== "All municipalities";
 
-        const normalized = query.trim().toLowerCase();
-        const matchesQuery =
-          !normalized ||
-          [c.name, c.ward, c.areas, c.municipality, ...c.focus]
-            .join(" ")
-            .toLowerCase()
-            .includes(normalized);
+  // Filtered Councillors (by name, ward, areas/location, municipality, party, focus)
+  const filteredCouncillors = useMemo(() => {
+    return councillors.filter((c) => {
+      const matchesMuni =
+        activeMunicipality === "All municipalities" ||
+        c.municipality === activeMunicipality ||
+        activeMunicipality.toLowerCase().includes(c.municipality.toLowerCase()) ||
+        c.municipality.toLowerCase().includes(activeMunicipality.toLowerCase());
 
-        return matchesMuni && matchesQuery;
-      })
-      .sort((a, b) => b.activityScore - a.activityScore)
-      .slice(0, 4);
-  }, [activeMunicipality, query]);
+      if (!matchesMuni) return false;
+      if (!normalizedQuery) return true;
 
-  // Top 4 Most Active Municipalities
-  const previewMunicipalities = useMemo(() => {
-    return [...municipalities].sort((a, b) => b.wards - a.wards).slice(0, 4);
-  }, []);
+      return (
+        c.name.toLowerCase().includes(normalizedQuery) ||
+        `ward ${c.ward}`.toLowerCase().includes(normalizedQuery) ||
+        String(c.ward).includes(normalizedQuery) ||
+        c.areas.toLowerCase().includes(normalizedQuery) ||
+        c.municipality.toLowerCase().includes(normalizedQuery) ||
+        c.party.name.toLowerCase().includes(normalizedQuery) ||
+        c.party.initials.toLowerCase().includes(normalizedQuery) ||
+        c.statement.toLowerCase().includes(normalizedQuery) ||
+        c.focus.some((f) => f.toLowerCase().includes(normalizedQuery))
+      );
+    });
+  }, [councillors, activeMunicipality, normalizedQuery]);
 
-  // Top 4 Most Active Wards
-  const previewWards = useMemo(() => {
-    return [...wards].sort((a, b) => b.activeProjects - a.activeProjects).slice(0, 4);
-  }, []);
+  // Filtered Municipalities (by name, province/location, code, description)
+  const filteredMunicipalities = useMemo(() => {
+    return municipalities.filter((m) => {
+      const matchesMuni =
+        activeMunicipality === "All municipalities" ||
+        m.name === activeMunicipality ||
+        activeMunicipality.toLowerCase().includes(m.name.toLowerCase()) ||
+        m.name.toLowerCase().includes(activeMunicipality.toLowerCase());
+
+      if (!matchesMuni) return false;
+      if (!normalizedQuery) return true;
+
+      return (
+        m.name.toLowerCase().includes(normalizedQuery) ||
+        m.province.toLowerCase().includes(normalizedQuery) ||
+        m.code.toLowerCase().includes(normalizedQuery) ||
+        m.description.toLowerCase().includes(normalizedQuery)
+      );
+    });
+  }, [municipalities, activeMunicipality, normalizedQuery]);
+
+  // Filtered Wards (by ward number, municipality, suburbs/location, priorities, councillor)
+  const filteredWards = useMemo(() => {
+    return wards.filter((w) => {
+      const matchesMuni =
+        activeMunicipality === "All municipalities" ||
+        w.municipality === activeMunicipality ||
+        activeMunicipality.toLowerCase().includes(w.municipality.toLowerCase()) ||
+        w.municipality.toLowerCase().includes(activeMunicipality.toLowerCase());
+
+      if (!matchesMuni) return false;
+      if (!normalizedQuery) return true;
+
+      return (
+        `ward ${w.wardNumber}`.toLowerCase().includes(normalizedQuery) ||
+        String(w.wardNumber).includes(normalizedQuery) ||
+        w.municipality.toLowerCase().includes(normalizedQuery) ||
+        w.suburbs.toLowerCase().includes(normalizedQuery) ||
+        w.councillorName.toLowerCase().includes(normalizedQuery) ||
+        w.priorities.some((p) => p.toLowerCase().includes(normalizedQuery))
+      );
+    });
+  }, [wards, activeMunicipality, normalizedQuery]);
+
+  const totalMatches =
+    filteredCouncillors.length + filteredMunicipalities.length + filteredWards.length;
+
+  const resetFilters = () => {
+    setQuery("");
+    setActiveMunicipality("All municipalities");
+    setActiveCategoryTab("all");
+  };
+
+  // Display items: if searching, show up to 8 matching items per section, otherwise show top 4 active
+  const displayedCouncillors = isSearching
+    ? filteredCouncillors.slice(0, 8)
+    : [...councillors].sort((a, b) => b.activityScore - a.activityScore).slice(0, 4);
+
+  const displayedMunicipalities = isSearching
+    ? filteredMunicipalities.slice(0, 8)
+    : [...municipalities].sort((a, b) => b.wards - a.wards).slice(0, 4);
+
+  const displayedWards = isSearching
+    ? filteredWards.slice(0, 8)
+    : [...wards].sort((a, b) => b.activeProjects - a.activeProjects).slice(0, 4);
 
   return (
     <div className="civic-shell min-h-screen text-ink flex flex-col justify-between">
@@ -100,9 +170,9 @@ function HomeDirectoryPage() {
       <CivicNavbar />
 
       <main className="relative z-10 mx-auto max-w-7xl px-4 py-8 sm:px-6 w-full flex-1">
-        {/* Hero Section with Quick Search */}
+        {/* Hero Section with Dynamic Search */}
         <section className="grid items-end gap-8 pb-10 pt-4 sm:pt-8 lg:grid-cols-12">
-          <div className="lg:col-span-7">
+          <div className="lg:col-span-6">
             <span className="verified-pill">
               <ShieldCheck size={14} /> 2024–2029 Term · Verified Directory
             </span>
@@ -110,8 +180,8 @@ function HomeDirectoryPage() {
               Find the councillor who represents your ward.
             </h1>
             <p className="mt-5 max-w-xl text-base leading-relaxed text-ink/75 sm:text-lg">
-              Search municipalities and wards across South Africa. Connect directly with your local
-              representative and raise neighborhood priorities.
+              Search municipalities, ward numbers, suburbs, and councillors across South Africa with
+              instant real-time dynamic filtering.
             </p>
 
             {/* Hub Quick Links */}
@@ -143,29 +213,52 @@ function HomeDirectoryPage() {
             </div>
           </div>
 
-          {/* Quick Search Panel */}
-          <div className="lg:col-span-5">
-            <div className="glass-panel p-5">
-              <label
-                htmlFor="home-councillor-search"
-                className="text-xs font-bold uppercase tracking-wider text-steel/70"
-              >
-                Quick Directory Search
-              </label>
+          {/* Quick Dynamic Search Panel */}
+          <div className="lg:col-span-6">
+            <div className="glass-panel p-5 sm:p-6 shadow-lg">
+              <div className="flex items-center justify-between">
+                <label
+                  htmlFor="home-councillor-search"
+                  className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-steel/80"
+                >
+                  <Search size={14} className="text-electric" />
+                  <span>Dynamic Civic Search</span>
+                </label>
+                {isSearching && (
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    className="flex items-center gap-1 text-[11px] font-semibold text-rose-600 hover:text-rose-800 transition-colors cursor-pointer"
+                  >
+                    <RotateCcw size={11} /> Reset
+                  </button>
+                )}
+              </div>
 
-              <div className="search-box mt-2">
-                <Search size={18} className="text-steel/50" />
+              {/* Main Search Input */}
+              <div className="search-box mt-2.5 relative">
+                <Search size={18} className="text-steel/50 shrink-0" />
                 <input
                   id="home-councillor-search"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Name, ward or suburb (e.g. 115, Berea)"
+                  placeholder="Search by name, ward (e.g. 115), suburb, or metro..."
                   className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-steel/45"
                 />
+                {query && (
+                  <button
+                    type="button"
+                    onClick={() => setQuery("")}
+                    className="p-1 text-steel/50 hover:text-ink transition-colors"
+                    aria-label="Clear search input"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
               </div>
 
-              {/* Dropdown for All Municipalities */}
-              <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+              {/* Municipality / Location Selector */}
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                 <div className="relative info-tile group cursor-pointer transition-colors hover:bg-white/80">
                   <Building2 size={15} className="shrink-0 text-steel/70 pointer-events-none" />
                   <span className="truncate flex-1 font-medium pointer-events-none text-ink text-xs">
@@ -184,281 +277,421 @@ function HomeDirectoryPage() {
                     <option value="All municipalities">All Municipalities</option>
                     {municipalities.map((m) => (
                       <option key={m.name} value={m.name}>
-                        {m.name}
+                        {m.name} ({m.province})
                       </option>
                     ))}
                   </select>
                 </div>
 
-                <div className="info-tile">
-                  <MapPin size={15} className="shrink-0 text-steel/70" />
-                  <span className="truncate font-semibold text-xs">
-                    {previewCouncillors.length} match{previewCouncillors.length === 1 ? "" : "es"}
+                <div className="info-tile flex items-center justify-between">
+                  <span className="text-steel/70 text-xs font-semibold">Live Matches:</span>
+                  <span className="font-bold text-xs text-electric">
+                    {totalMatches} result{totalMatches === 1 ? "" : "s"}
                   </span>
                 </div>
               </div>
 
-              <div className="mt-4 flex items-center justify-between text-xs pt-2 border-t border-ink/5">
-                <span className="text-steel/70">Need a comprehensive list?</span>
-                <Link
-                  to="/councillors"
-                  search={{
-                    municipality:
-                      activeMunicipality !== "All municipalities" ? activeMunicipality : undefined,
-                  }}
-                  className="font-bold text-electric hover:underline flex items-center gap-1"
+              {/* Category Filter Pills for instant drilldown */}
+              <div className="mt-3.5 pt-3 border-t border-ink/5 flex flex-wrap items-center gap-1.5 text-xs">
+                <span className="text-[11px] font-semibold text-steel/70 mr-1 flex items-center gap-1">
+                  <SlidersHorizontal size={11} /> Filter:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setActiveCategoryTab("all")}
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition-all cursor-pointer ${
+                    activeCategoryTab === "all"
+                      ? "bg-[#E5884B] text-white shadow-xs"
+                      : "bg-white/60 text-steel hover:bg-white hover:text-ink"
+                  }`}
                 >
-                  Full Directory <ArrowRight size={12} />
-                </Link>
+                  All Results ({totalMatches})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveCategoryTab("councillors")}
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition-all cursor-pointer ${
+                    activeCategoryTab === "councillors"
+                      ? "bg-[#E5884B] text-white shadow-xs"
+                      : "bg-white/60 text-steel hover:bg-white hover:text-ink"
+                  }`}
+                >
+                  Councillors ({filteredCouncillors.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveCategoryTab("municipalities")}
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition-all cursor-pointer ${
+                    activeCategoryTab === "municipalities"
+                      ? "bg-[#E5884B] text-white shadow-xs"
+                      : "bg-white/60 text-steel hover:bg-white hover:text-ink"
+                  }`}
+                >
+                  Municipalities ({filteredMunicipalities.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveCategoryTab("wards")}
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition-all cursor-pointer ${
+                    activeCategoryTab === "wards"
+                      ? "bg-[#E5884B] text-white shadow-xs"
+                      : "bg-white/60 text-steel hover:bg-white hover:text-ink"
+                  }`}
+                >
+                  Wards ({filteredWards.length})
+                </button>
               </div>
+
+              {/* Dynamic Status Feedback */}
+              {isSearching && (
+                <div className="mt-3 flex items-center justify-between text-xs pt-2 border-t border-ink/5 bg-amber-50/60 rounded-lg px-3 py-2 text-amber-900">
+                  <span className="truncate">
+                    Filtering for: <strong>"{query || activeMunicipality}"</strong>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    className="font-bold underline hover:text-amber-950 ml-2 shrink-0 cursor-pointer"
+                  >
+                    Clear Filter
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </section>
 
-        {/* 1. Most Active Councillors (Preview of 4) */}
-        <section className="pb-12">
-          <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="section-label">Verified Activity Feed</span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-800">
-                  <Flame size={11} className="text-amber-600" /> Top Responders
-                </span>
+        {/* 1. Councillors Section */}
+        {(activeCategoryTab === "all" || activeCategoryTab === "councillors") && (
+          <section className="pb-12">
+            <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="section-label">Verified Activity Feed</span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                    <Flame size={11} className="text-amber-600" />
+                    {isSearching ? "Matching Representatives" : "Top Responders"}
+                  </span>
+                </div>
+                <h2 className="mt-1 font-display text-2xl font-bold sm:text-3xl text-ink">
+                  {isSearching
+                    ? `Matching Councillors (${filteredCouncillors.length})`
+                    : "Most Active Councillors"}
+                </h2>
+                <p className="mt-1 text-xs sm:text-sm text-steel/80 max-w-xl">
+                  {isSearching
+                    ? `Showing ${displayedCouncillors.length} of ${filteredCouncillors.length} councillors matching your search.`
+                    : "Top 4 featured representatives with highest engagement scores and verified commitment delivery."}
+                </p>
               </div>
-              <h2 className="mt-1 font-display text-2xl font-bold sm:text-3xl text-ink">
-                Most Active Councillors
-              </h2>
-              <p className="mt-1 text-xs sm:text-sm text-steel/80 max-w-xl">
-                Top 4 featured representatives with highest engagement scores and verified
-                commitment delivery.
-              </p>
+
+              <Link
+                to="/councillors"
+                search={{
+                  municipality:
+                    activeMunicipality !== "All municipalities" ? activeMunicipality : undefined,
+                }}
+                className="button-base button-light text-xs font-bold"
+              >
+                View all councillors <ArrowRight size={14} />
+              </Link>
             </div>
 
-            <Link to="/councillors" className="button-base button-light text-xs font-bold">
-              View all councillors <ArrowRight size={14} />
-            </Link>
-          </div>
+            {displayedCouncillors.length > 0 ? (
+              <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+                {displayedCouncillors.map((councillor) => (
+                  <article key={councillor.id} className="glass-card flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-start gap-3">
+                        <img
+                          src={councillor.image}
+                          alt={`Portrait of ${councillor.name}`}
+                          loading="lazy"
+                          width={64}
+                          height={64}
+                          className="size-14 shrink-0 rounded-xl object-cover shadow-sm"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-1">
+                            <h3 className="truncate font-display font-bold text-sm text-ink">
+                              {councillor.name}
+                            </h3>
+                            <span className="inline-flex items-center gap-1 rounded bg-electric/10 px-1.5 py-0.5 text-[10px] font-bold text-electric">
+                              {councillor.activityScore}%
+                            </span>
+                          </div>
+                          <p className="mt-0.5 text-[11px] text-steel/80 font-medium">
+                            Ward {councillor.ward} · {councillor.municipality}
+                          </p>
+                          <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-electric truncate">
+                            <MapPin size={11} className="shrink-0" /> {councillor.areas}
+                          </p>
+                        </div>
+                      </div>
 
-          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-            {previewCouncillors.map((councillor) => (
-              <article key={councillor.id} className="glass-card flex flex-col justify-between">
-                <div>
-                  <div className="flex items-start gap-3">
-                    <img
-                      src={councillor.image}
-                      alt={`Portrait of ${councillor.name}`}
-                      loading="lazy"
-                      width={64}
-                      height={64}
-                      className="size-14 shrink-0 rounded-xl object-cover shadow-sm"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <h3 className="truncate font-display font-bold text-sm text-ink">
-                          {councillor.name}
-                        </h3>
-                        <span className="inline-flex items-center gap-1 rounded bg-electric/10 px-1.5 py-0.5 text-[10px] font-bold text-electric">
-                          {councillor.activityScore}%
+                      <div className="mt-3 flex items-center justify-between gap-2 border-y border-ink/10 py-2">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <span
+                            className={`party-logo !size-7 !text-[10px] ${councillor.party.tone}`}
+                            aria-hidden="true"
+                          >
+                            {councillor.party.initials}
+                          </span>
+                          <span className="truncate text-xs font-bold text-ink">
+                            {councillor.party.name}
+                          </span>
+                        </div>
+                      </div>
+
+                      <p className="mt-2 text-xs leading-relaxed text-steel/85 line-clamp-2">
+                        {councillor.statement}
+                      </p>
+                    </div>
+
+                    <div className="mt-4 flex items-center justify-between border-t border-ink/5 pt-3 text-xs">
+                      <span className="flex items-center gap-1 font-semibold text-ink">
+                        <CheckCircle2 size={13} className="text-electric" />{" "}
+                        {councillor.commitments} commitments
+                      </span>
+                      <div className="flex items-center gap-1">
+                        {canEditCouncillor(councillor.id) && (
+                          <button
+                            type="button"
+                            className="button-base button-light button-small !min-h-7 !py-1 !px-2 text-[11px] flex items-center gap-1 border border-ink/15 hover:border-ink/30"
+                            onClick={() => setEditingCouncillor(councillor)}
+                            title="Edit councillor card"
+                          >
+                            <Pencil size={10} className="text-electric" /> Edit
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="button-base button-dark button-small !min-h-7 !py-1 !px-2.5 text-[11px]"
+                          onClick={() => setContactCouncillor(councillor)}
+                        >
+                          Contact
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="glass-panel p-8 text-center">
+                <Users size={32} className="mx-auto text-steel/40 mb-2" />
+                <h3 className="font-display text-lg font-bold text-ink">
+                  No matching councillors found
+                </h3>
+                <p className="text-xs text-steel/70 mt-1 max-w-md mx-auto">
+                  No ward councillors matched "{query || activeMunicipality}". Try searching by
+                  suburb, ward number, or a different municipality.
+                </p>
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="button-base button-light mt-4 text-xs font-bold"
+                >
+                  Clear Filters
+                </button>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* 2. Municipalities Section */}
+        {(activeCategoryTab === "all" || activeCategoryTab === "municipalities") && (
+          <section className="pb-12">
+            <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="section-label">Municipal Demographics</span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-electric/10 px-2 py-0.5 text-[10px] font-bold text-electric">
+                    <Building2 size={11} /> Metropolitan Hubs
+                  </span>
+                </div>
+                <h2 className="mt-1 font-display text-2xl font-bold sm:text-3xl text-ink">
+                  {isSearching
+                    ? `Matching Municipalities (${filteredMunicipalities.length})`
+                    : "Most Active Municipalities"}
+                </h2>
+                <p className="mt-1 text-xs sm:text-sm text-steel/80 max-w-xl">
+                  {isSearching
+                    ? `Showing ${displayedMunicipalities.length} of ${filteredMunicipalities.length} municipalities matching your search.`
+                    : "Top 4 metropolitan and regional municipalities with the highest ward allocations."}
+                </p>
+              </div>
+
+              <Link to="/municipalities" className="button-base button-light text-xs font-bold">
+                View all municipalities <ArrowRight size={14} />
+              </Link>
+            </div>
+
+            {displayedMunicipalities.length > 0 ? (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                {displayedMunicipalities.map((m) => (
+                  <div key={m.name} className="glass-card flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <CityLogoPlaceholder name={m.name} code={m.code} size="md" />
+                        <span className="text-xs font-bold text-ink bg-white/80 px-2.5 py-0.5 rounded-full border border-white/90">
+                          {m.wards} Wards
                         </span>
                       </div>
-                      <p className="mt-0.5 text-[11px] text-steel/80 font-medium">
-                        Ward {councillor.ward}
-                      </p>
-                      <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-electric truncate">
-                        <MapPin size={11} className="shrink-0" /> {councillor.areas}
-                      </p>
+                      <h3 className="mt-3 font-display font-bold text-base text-ink leading-tight">
+                        {m.name}
+                      </h3>
+                      <p className="mt-1 text-[11px] text-steel/70 font-semibold">{m.province}</p>
+                      <p className="mt-2 text-xs text-steel/80 line-clamp-2">{m.description}</p>
                     </div>
-                  </div>
 
-                  <div className="mt-3 flex items-center justify-between gap-2 border-y border-ink/10 py-2">
-                    <div className="flex min-w-0 items-center gap-1.5">
-                      <span
-                        className={`party-logo !size-7 !text-[10px] ${councillor.party.tone}`}
-                        aria-hidden="true"
+                    <div className="mt-4 pt-3 border-t border-ink/5 space-y-1.5">
+                      {canEditMunicipality() && (
+                        <button
+                          type="button"
+                          className="button-base button-light button-small w-full justify-center !min-h-7 !py-1 text-[11px] flex items-center gap-1 border border-ink/15 hover:border-ink/30"
+                          onClick={() => setEditingMunicipality(m)}
+                          title="Edit municipality"
+                        >
+                          <Pencil size={10} className="text-electric" /> Edit Municipality
+                        </button>
+                      )}
+                      <Link
+                        to="/councillors"
+                        search={{ municipality: m.name }}
+                        className="button-base button-dark button-small w-full justify-center text-xs"
                       >
-                        {councillor.party.initials}
-                      </span>
-                      <span className="truncate text-xs font-bold text-ink">
-                        {councillor.party.name}
-                      </span>
+                        View councillors <ArrowRight size={13} />
+                      </Link>
                     </div>
                   </div>
+                ))}
+              </div>
+            ) : (
+              <div className="glass-panel p-8 text-center">
+                <Building2 size={32} className="mx-auto text-steel/40 mb-2" />
+                <h3 className="font-display text-lg font-bold text-ink">
+                  No matching municipalities found
+                </h3>
+                <p className="text-xs text-steel/70 mt-1 max-w-md mx-auto">
+                  No municipalities matched "{query || activeMunicipality}". Try searching for
+                  Gauteng, Western Cape, or specific city names.
+                </p>
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="button-base button-light mt-4 text-xs font-bold"
+                >
+                  Clear Filters
+                </button>
+              </div>
+            )}
+          </section>
+        )}
 
-                  <p className="mt-2 text-xs leading-relaxed text-steel/85 line-clamp-2">
-                    {councillor.statement}
-                  </p>
-                </div>
-
-                <div className="mt-4 flex items-center justify-between border-t border-ink/5 pt-3 text-xs">
-                  <span className="flex items-center gap-1 font-semibold text-ink">
-                    <CheckCircle2 size={13} className="text-electric" /> {councillor.commitments}{" "}
-                    commitments
+        {/* 3. Wards Section */}
+        {(activeCategoryTab === "all" || activeCategoryTab === "wards") && (
+          <section className="pb-16">
+            <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="section-label">Community Infrastructure</span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                    <Layers size={11} /> Active Projects
                   </span>
-                  <div className="flex items-center gap-1">
-                    {canEditCouncillor(councillor.id) && (
-                      <button
-                        type="button"
-                        className="button-base button-light button-small !min-h-7 !py-1 !px-2 text-[11px] flex items-center gap-1 border border-ink/15 hover:border-ink/30"
-                        onClick={() => setEditingCouncillor(councillor)}
-                        title="Edit councillor card"
-                      >
-                        <Pencil size={10} className="text-electric" /> Edit
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className="button-base button-dark button-small !min-h-7 !py-1 !px-2.5 text-[11px]"
-                      onClick={() => setContactCouncillor(councillor)}
-                    >
-                      Contact
-                    </button>
-                  </div>
                 </div>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        {/* 2. Most Active Municipalities (Preview of 4) */}
-        <section className="pb-12">
-          <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="section-label">Municipal Demographics</span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-electric/10 px-2 py-0.5 text-[10px] font-bold text-electric">
-                  <Building2 size={11} /> Metropolitan Hubs
-                </span>
+                <h2 className="mt-1 font-display text-2xl font-bold sm:text-3xl text-ink">
+                  {isSearching ? `Matching Wards (${filteredWards.length})` : "Most Active Wards"}
+                </h2>
+                <p className="mt-1 text-xs sm:text-sm text-steel/80 max-w-xl">
+                  {isSearching
+                    ? `Showing ${displayedWards.length} of ${filteredWards.length} wards matching your search.`
+                    : "Top 4 wards leading in infrastructure maintenance, community meetings, and active projects."}
+                </p>
               </div>
-              <h2 className="mt-1 font-display text-2xl font-bold sm:text-3xl text-ink">
-                Most Active Municipalities
-              </h2>
-              <p className="mt-1 text-xs sm:text-sm text-steel/80 max-w-xl">
-                Top 4 metropolitan and regional municipalities with the highest ward allocations.
-              </p>
-            </div>
 
-            <Link to="/municipalities" className="button-base button-light text-xs font-bold">
-              View all 10 municipalities <ArrowRight size={14} />
-            </Link>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {previewMunicipalities.map((m) => (
-              <div key={m.name} className="glass-card flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <CityLogoPlaceholder name={m.name} code={m.code} size="md" />
-                    <span className="text-xs font-bold text-ink bg-white/80 px-2.5 py-0.5 rounded-full border border-white/90">
-                      {m.wards} Wards
-                    </span>
-                  </div>
-                  <h3 className="mt-3 font-display font-bold text-base text-ink leading-tight">
-                    {m.name}
-                  </h3>
-                  <p className="mt-1 text-[11px] text-steel/70 font-semibold">{m.province}</p>
-                  <p className="mt-2 text-xs text-steel/80 line-clamp-2">{m.description}</p>
-                </div>
-
-                <div className="mt-4 pt-3 border-t border-ink/5 space-y-1.5">
-                  {canEditMunicipality() && (
-                    <button
-                      type="button"
-                      className="button-base button-light button-small w-full justify-center !min-h-7 !py-1 text-[11px] flex items-center gap-1 border border-ink/15 hover:border-ink/30"
-                      onClick={() => setEditingMunicipality(m)}
-                      title="Edit municipality"
-                    >
-                      <Pencil size={10} className="text-electric" /> Edit Municipality
-                    </button>
-                  )}
-                  <Link
-                    to="/councillors"
-                    search={{ municipality: m.name }}
-                    className="button-base button-dark button-small w-full justify-center text-xs"
-                  >
-                    View councillors <ArrowRight size={13} />
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* 3. Most Active Wards (Preview of 4) */}
-        <section className="pb-16">
-          <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="section-label">Community Infrastructure</span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
-                  <Layers size={11} /> Active Projects
-                </span>
-              </div>
-              <h2 className="mt-1 font-display text-2xl font-bold sm:text-3xl text-ink">
-                Most Active Wards
-              </h2>
-              <p className="mt-1 text-xs sm:text-sm text-steel/80 max-w-xl">
-                Top 4 wards leading in infrastructure maintenance, community meetings, and active
-                projects.
-              </p>
-            </div>
-
-            <Link to="/wards" className="button-base button-light text-xs font-bold">
-              View all wards <ArrowRight size={14} />
-            </Link>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {previewWards.map((w) => (
-              <div
-                key={`${w.municipality}-${w.wardNumber}`}
-                className="glass-card flex flex-col justify-between"
+              <Link
+                to="/wards"
+                search={{
+                  municipality:
+                    activeMunicipality !== "All municipalities" ? activeMunicipality : undefined,
+                }}
+                className="button-base button-light text-xs font-bold"
               >
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="grid size-9 place-items-center rounded-xl bg-electric text-white font-display font-bold text-sm">
-                      {w.wardNumber}
-                    </span>
-                    <span className="text-[11px] font-bold text-emerald-800 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                      {w.activeProjects} active projects
-                    </span>
-                  </div>
-                  <h3 className="mt-3 font-display font-bold text-base text-ink">
-                    Ward {w.wardNumber}
-                  </h3>
-                  <p className="mt-0.5 text-[11px] text-steel/70 font-medium truncate">
-                    {w.municipality}
-                  </p>
-                  <p className="mt-2 text-xs text-steel/85 line-clamp-2">
-                    <strong>Areas:</strong> {w.suburbs}
-                  </p>
-                </div>
+                View all wards <ArrowRight size={14} />
+              </Link>
+            </div>
 
-                <div className="mt-4 pt-3 border-t border-ink/5 flex items-center justify-between text-xs">
-                  <span className="text-steel/70">Rep: {w.councillorName}</span>
-                  <div className="flex items-center gap-1.5">
-                    {canEditWard(w.wardNumber, w.municipality) && (
-                      <button
-                        type="button"
-                        className="button-base button-light button-small !min-h-7 !py-0.5 !px-1.5 text-[10px] flex items-center gap-1 border border-ink/15 hover:border-ink/30"
-                        onClick={() => setEditingWard(w)}
-                        title="Edit ward"
-                      >
-                        <Pencil size={9} className="text-electric" /> Edit
-                      </button>
-                    )}
-                    <Link
-                      to="/councillors"
-                      search={{ municipality: w.municipality }}
-                      className="font-bold text-electric hover:underline flex items-center gap-1"
-                    >
-                      Connect <ArrowRight size={12} />
-                    </Link>
+            {displayedWards.length > 0 ? (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                {displayedWards.map((w) => (
+                  <div
+                    key={`${w.municipality}-${w.wardNumber}`}
+                    className="glass-card flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="grid size-9 place-items-center rounded-xl bg-electric text-white font-display font-bold text-sm">
+                          {w.wardNumber}
+                        </span>
+                        <span className="text-[11px] font-bold text-emerald-800 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                          {w.activeProjects} active projects
+                        </span>
+                      </div>
+                      <h3 className="mt-3 font-display font-bold text-base text-ink">
+                        Ward {w.wardNumber}
+                      </h3>
+                      <p className="mt-0.5 text-[11px] text-steel/70 font-medium truncate">
+                        {w.municipality}
+                      </p>
+                      <p className="mt-2 text-xs text-steel/85 line-clamp-2">
+                        <strong>Areas:</strong> {w.suburbs}
+                      </p>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-ink/5 flex items-center justify-between text-xs">
+                      <span className="text-steel/70">Rep: {w.councillorName}</span>
+                      <div className="flex items-center gap-1.5">
+                        {canEditWard(w.wardNumber, w.municipality) && (
+                          <button
+                            type="button"
+                            className="button-base button-light button-small !min-h-7 !py-0.5 !px-1.5 text-[10px] flex items-center gap-1 border border-ink/15 hover:border-ink/30"
+                            onClick={() => setEditingWard(w)}
+                            title="Edit ward"
+                          >
+                            <Pencil size={9} className="text-electric" /> Edit
+                          </button>
+                        )}
+                        <Link
+                          to="/councillors"
+                          search={{ municipality: w.municipality }}
+                          className="font-bold text-electric hover:underline flex items-center gap-1"
+                        >
+                          Connect <ArrowRight size={12} />
+                        </Link>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </section>
+            ) : (
+              <div className="glass-panel p-8 text-center">
+                <MapPin size={32} className="mx-auto text-steel/40 mb-2" />
+                <h3 className="font-display text-lg font-bold text-ink">No matching wards found</h3>
+                <p className="text-xs text-steel/70 mt-1 max-w-md mx-auto">
+                  No wards matched "{query || activeMunicipality}". Try searching by ward number,
+                  suburb, or municipality.
+                </p>
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="button-base button-light mt-4 text-xs font-bold"
+                >
+                  Clear Filters
+                </button>
+              </div>
+            )}
+          </section>
+        )}
 
         {/* Civic banner */}
         <section className="rewards-panel p-6 sm:p-8 mb-12">
@@ -477,6 +710,13 @@ function HomeDirectoryPage() {
             </div>
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setPartnerModalOpen(true)}
+                className="button-base inline-flex items-center justify-center gap-1.5 rounded-full bg-[#E5884B] px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#D97736] transition-all cursor-pointer"
+              >
+                <Sparkles size={15} /> Become a Partner
+              </button>
               <Link to="/councillors" className="button-base button-light justify-center">
                 Search my councillor <ArrowRight size={15} />
               </Link>
@@ -492,6 +732,9 @@ function HomeDirectoryPage() {
       </main>
 
       <CivicFooter />
+
+      {/* Partner inquiry modal */}
+      <PartnerInquiryModal isOpen={partnerModalOpen} onClose={() => setPartnerModalOpen(false)} />
 
       {/* Contact modal */}
       <ContactModal councillor={contactCouncillor} onClose={() => setContactCouncillor(null)} />

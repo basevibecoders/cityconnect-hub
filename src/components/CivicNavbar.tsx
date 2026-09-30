@@ -10,12 +10,16 @@ import {
   UserCheck,
   Eye,
   RotateCcw,
+  Smartphone,
+  Sparkles,
 } from "lucide-react";
 import { useState } from "react";
 import { useCivic, type UserRole } from "@/context/CivicContext";
+import { PartnerInquiryModal } from "@/components/PartnerInquiryModal";
 
 export function CivicNavbar() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [partnerModalOpen, setPartnerModalOpen] = useState(false);
   const {
     role,
     setRole,
@@ -29,6 +33,9 @@ export function CivicNavbar() {
 
   return (
     <header className="relative z-30 mx-auto max-w-7xl px-4 pt-4 sm:px-6 sm:pt-6">
+      {/* Partner Inquiry Modal */}
+      <PartnerInquiryModal isOpen={partnerModalOpen} onClose={() => setPartnerModalOpen(false)} />
+
       {/* Role Switcher Banner */}
       <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-ink/10 bg-white/75 px-3.5 py-1.5 text-xs backdrop-blur-md shadow-xs">
         <div className="flex items-center gap-2">
@@ -141,9 +148,26 @@ export function CivicNavbar() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <Link to="/councillors" className="button-base button-dark hidden sm:inline-flex">
-            Find your councillor
-          </Link>
+          <button
+            type="button"
+            onClick={() => setPartnerModalOpen(true)}
+            className="button-base inline-flex items-center gap-1.5 rounded-full bg-[#E5884B] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#D97736] active:scale-98 transition-all cursor-pointer"
+            aria-label="Open partner inquiry modal"
+          >
+            <Sparkles size={15} />
+            <span>Become a Partner</span>
+          </button>
+
+          <a
+            href="https://civicrewards.co.za/ReportApp"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="button-base inline-flex items-center gap-1.5 rounded-full bg-[#1B8057] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#156745] active:!bg-[#E5884B] transition-all"
+            aria-label="Open CivicRewards Reporting App in a new tab"
+          >
+            <Smartphone size={15} />
+            <span>Reporting App</span>
+          </a>
           <button
             type="button"
             className="button-base icon-button md:hidden"
@@ -198,6 +222,27 @@ export function CivicNavbar() {
             <MapPin size={16} />
             <span>Wards</span>
           </Link>
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              setPartnerModalOpen(true);
+            }}
+            className="button-base mt-2 flex items-center justify-center gap-1.5 rounded-xl bg-[#E5884B] px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#D97736] transition-all cursor-pointer"
+          >
+            <Sparkles size={16} />
+            <span>Become a Partner</span>
+          </button>
+          <a
+            href="https://civicrewards.co.za/ReportApp"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="button-base mt-1 flex items-center justify-center gap-1.5 rounded-xl bg-[#1B8057] px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#156745] active:!bg-[#E5884B] transition-all"
+            onClick={() => setMenuOpen(false)}
+          >
+            <Smartphone size={16} />
+            <span>Reporting App</span>
+          </a>
         </nav>
       )}
     </header>
