@@ -45,6 +45,7 @@ const councillors = [
     areas: "Berea · Musgrave",
     image: nalediPortrait,
     focus: ["Public health", "Water"],
+    party: { name: "Civic Alliance", initials: "CA", tone: "party-emerald" },
     statement: "Supporting reliable local services and stronger neighbourhood health programmes.",
     commitments: 6,
   },
@@ -55,6 +56,7 @@ const councillors = [
     areas: "Fourways · Bloubosrand",
     image: thaboPortrait,
     focus: ["Housing", "Roads"],
+    party: { name: "Ubuntu Movement", initials: "UM", tone: "party-gold" },
     statement: "Focused on road maintenance and sustainable housing across growing communities.",
     commitments: 4,
   },
@@ -65,6 +67,7 @@ const councillors = [
     areas: "Langa · Pinelands",
     image: zanelePortrait,
     focus: ["Youth", "Safety"],
+    party: { name: "People First", initials: "PF", tone: "party-coral" },
     statement: "Working for safer streets and more skills opportunities for young residents.",
     commitments: 3,
   },
@@ -186,11 +189,20 @@ function CouncillorDirectory() {
                       <p className="mt-1 flex items-center gap-1 text-xs font-medium text-electric"><MapPin size={12} /> {councillor.areas}</p>
                     </div>
                   </div>
-                  <div className="mt-4 flex flex-wrap gap-1.5">
-                    {councillor.focus.map((item, index) => <span key={item} className={index === 0 ? "focus-pill focus-pill-primary" : "focus-pill"}>{item}</span>)}
+                  <div className="mt-4 flex items-center justify-between gap-3 border-y border-ink/10 py-3">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <span className={`party-logo ${councillor.party.tone}`} aria-hidden="true">{councillor.party.initials}</span>
+                      <span className="min-w-0">
+                        <span className="block text-[10px] font-semibold uppercase text-steel/55">Political party</span>
+                        <span className="block truncate text-xs font-bold text-ink">{councillor.party.name}</span>
+                      </span>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
+                      {councillor.focus.map((item, index) => <span key={item} className={index === 0 ? "focus-pill focus-pill-primary" : "focus-pill"}>{item}</span>)}
+                    </div>
                   </div>
                   <p className="mt-3 min-h-16 text-sm leading-relaxed text-steel/80">{councillor.statement}</p>
-                  <div className="mt-4 flex items-center justify-between border-t border-ink/10 pt-3">
+                  <div className="mt-4 flex items-center justify-between pt-3">
                     <span className="flex items-center gap-1.5 text-xs font-semibold"><CheckCircle2 size={14} className="text-electric" /> {councillor.commitments} commitments</span>
                     <ActionButton className="button-dark button-small" onClick={() => setContactName(councillor.name)}>Contact <ArrowRight size={14} /></ActionButton>
                   </div>
