@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Keep the councillor experience as one responsive, client-filtered directory until a live civic data source is connected; this preserves a fast public browsing flow.
