@@ -1,6 +1,6 @@
 # CityConnect Hub
 
-recreate this  councillor web app to make it more beautiful, mordern , smart city style etc
+recreate this councillor web app to make it more beautiful, mordern , smart city style etc
 https://civicrewards.co.za/councillor
 
 This project was built with [Lovable](https://lovable.dev).

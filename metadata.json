@@ -1,0 +1,6 @@
+{
+  "name": "CityConnect Hub",
+  "description": "Find ward councillors across South African municipalities and connect with your local representatives.",
+  "permissions": [],
+  "capabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
