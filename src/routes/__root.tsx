@@ -11,6 +11,10 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { CivicProvider } from "@/context/CivicContext";
+import { EditCouncillorModal } from "@/components/EditCouncillorModal";
+import { EditWardModal } from "@/components/EditWardModal";
+import { EditMunicipalityModal } from "@/components/EditMunicipalityModal";
 
 function NotFoundComponent() {
   return (
@@ -119,8 +123,13 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <CivicProvider>
+        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <Outlet />
+        <EditCouncillorModal />
+        <EditWardModal />
+        <EditMunicipalityModal />
+      </CivicProvider>
     </QueryClientProvider>
   );
 }
